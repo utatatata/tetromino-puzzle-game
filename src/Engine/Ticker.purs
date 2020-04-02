@@ -3,9 +3,12 @@ module Engine.Ticker where
 import Prelude
 import Control.Monad.Free.Trans (runFreeT)
 import Control.Monad.Iter.Trans (IterT, delay)
+import Control.Monad.RWS (RWST, ask, evalRWST)
+import Control.Monad.Reader (class MonadAsk)
 import Control.Monad.Rec.Class (class MonadRec)
-import Control.Monad.State (class MonadState, StateT, evalStateT, get, modify_)
+import Control.Monad.State (class MonadState, get, modify_)
 import Control.Monad.Trans.Class (class MonadTrans, lift)
+import Control.Monad.Writer (class MonadTell)
 import Control.Process.Extra (sleep)
 import Data.DateTime (DateTime, diff)
 import Data.DateTime.Extra (now)
@@ -13,26 +16,28 @@ import Data.Identity (Identity(..))
 import Data.Int (toNumber)
 import Data.Newtype (class Newtype, unwrap, wrap)
 import Data.Time.Duration (Milliseconds(..), fromDuration)
-import Effect (Effect)
+import Data.Tuple (Tuple(..))
 import Effect.Class (class MonadEffect, liftEffect)
 
 data TickerState
-  = TickerState { fps :: Int, startTime :: DateTime, lastTickedTime :: DateTime }
+  = TickerState { fps :: Int, lastTickedTime :: DateTime }
 
-initTickerState :: Effect TickerState
-initTickerState = do
-  t <- now
-  pure $ TickerState { fps: 16, startTime: t, lastTickedTime: t }
+data TickerReader
+  = TickerReader { startTime :: DateTime }
 
 newtype TickerT m a
-  = Ticker (IterT (StateT TickerState m) a)
+  = Ticker (IterT (RWST TickerReader Unit TickerState m) a)
 
-runTickerT :: forall m. Monad m => MonadRec m => MonadEffect m => TickerT m ~> m
-runTickerT m = do
-  s <- liftEffect initTickerState
-  evalStateT (runFreeT go (unwrap m)) s
+type TickerConfig
+  = { fps :: Int }
+
+runTickerT :: forall m. Monad m => MonadRec m => MonadEffect m => TickerConfig -> TickerT m ~> m
+runTickerT { fps } m = do
+  now' <- liftEffect now
+  (Tuple a _) <- evalRWST (runFreeT go (unwrap m)) (TickerReader { startTime: now' }) (TickerState { fps: fps, lastTickedTime: now' })
+  pure a
   where
-  go :: forall a. Identity (IterT (StateT TickerState m) a) -> (StateT TickerState m) (IterT (StateT TickerState m) a)
+  go :: forall a. Identity (IterT (RWST TickerReader Unit TickerState m) a) -> (RWST TickerReader Unit TickerState m) (IterT (RWST TickerReader Unit TickerState m) a)
   go (Identity a) = do
     now' <- liftEffect now
     TickerState { fps, lastTickedTime } <- get
@@ -40,29 +45,33 @@ runTickerT m = do
     modify_ \(TickerState s) -> TickerState (s { lastTickedTime = now' })
     pure a
 
-derive instance newtypeTicker :: Newtype (TickerT m a) _
+derive instance newtypeTickerT :: Newtype (TickerT m a) _
 
-derive newtype instance functorTicker :: Functor m => Functor (TickerT m)
+derive newtype instance functorTickerT :: Functor m => Functor (TickerT m)
 
-derive newtype instance applyTicker :: Monad m => Apply (TickerT m)
+derive newtype instance applyTickerT :: Monad m => Apply (TickerT m)
 
-derive newtype instance applicativeTicker :: Monad m => Applicative (TickerT m)
+derive newtype instance applicativeTickerT :: Monad m => Applicative (TickerT m)
 
-derive newtype instance bindTicker :: Monad m => Bind (TickerT m)
+derive newtype instance bindTickerT :: Monad m => Bind (TickerT m)
 
-derive newtype instance monadTicker :: Monad m => Monad (TickerT m)
+derive newtype instance monadTickerT :: Monad m => Monad (TickerT m)
 
-derive newtype instance monadRecTicker :: MonadRec m => MonadRec (TickerT m)
+derive newtype instance monadRecTickerT :: MonadRec m => MonadRec (TickerT m)
 
-derive newtype instance monadEffectTicker :: MonadEffect m => MonadEffect (TickerT m)
+derive newtype instance monadEffectTickerT :: MonadEffect m => MonadEffect (TickerT m)
 
-derive newtype instance monadStateTicker :: Monad m => MonadState TickerState (TickerT m)
+derive newtype instance moandAskTickerT :: Monad m => MonadAsk TickerReader (TickerT m)
+
+derive newtype instance monadTell :: Monad m => MonadTell Unit (TickerT m)
+
+derive newtype instance monadStateTickerT :: Monad m => MonadState TickerState (TickerT m)
 
 instance monadTransTickerT :: MonadTrans TickerT where
   lift = wrap <<< lift <<< lift
 
 tick :: forall m. Monad m => TickerT m Unit
-tick = wrap $ delay (pure unit)
+tick = wrap <<< delay $ pure unit
 
 setFPS :: forall m. Monad m => Int -> TickerT m Unit
 setFPS fps = modify_ \(TickerState s) -> TickerState (s { fps = fps })
@@ -81,7 +90,7 @@ getDeltaTime = do
 getElapsedTime :: forall m. Monad m => MonadEffect m => TickerT m Milliseconds
 getElapsedTime = do
   n <- liftEffect now
-  TickerState { startTime } <- get
+  TickerReader { startTime } <- ask
   pure $ fromDuration (n `diff` startTime :: Milliseconds)
 
 getLastTickedTime :: forall m. Monad m => TickerT m DateTime
@@ -91,5 +100,5 @@ getLastTickedTime = do
 
 getStartTime :: forall m. Monad m => TickerT m DateTime
 getStartTime = do
-  TickerState { startTime } <- get
+  TickerReader { startTime } <- ask
   pure startTime

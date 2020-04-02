@@ -61,4 +61,4 @@ testLoop = do
 main :: Effect Unit
 main = do
   log "🍝"
-  runGameLoop testLoop
+  runGameLoop { fps: 16 } testLoop

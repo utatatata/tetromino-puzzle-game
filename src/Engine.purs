@@ -17,15 +17,14 @@ type Size
 type GameConfig
   = { fps :: Int }
 
-{-
 defaultConfig :: GameConfig
 defaultConfig = { fps: 16 }
--}
+
 type GameLoop
   = TickerT Frame
 
-runGameLoop :: GameLoop ~> Effect
-runGameLoop = runFrame <<< runTickerT
+runGameLoop :: GameConfig -> GameLoop ~> Effect
+runGameLoop config = runFrame <<< (runTickerT config)
 
 newtype Frame a
   = Frame (Free Command a)
