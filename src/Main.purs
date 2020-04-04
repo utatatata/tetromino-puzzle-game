@@ -8,9 +8,7 @@ import Data.List.Zipper (DoubleZipper(..), Zipper(..))
 import Data.Maybe (Maybe(..))
 import Data.Unfoldable (replicate)
 import Effect (Effect)
-import Effect.Class (liftEffect)
-import Effect.Console (log)
-import Engine (GameLoop, runGameLoop, windowSize)
+import Engine (class Drawable, GameLoop, defaultConfig, draw, flush, fromArray, runGameLoop, translate)
 import Engine.Ticker (tick)
 
 data Tetromino
@@ -49,16 +47,17 @@ initField = DoubleZipper $ Zipper Nil line (replicate (rows - 1) line)
 data Game
   = Game Tetromino Field
 
+tetrominoI :: forall m. Drawable m => m Unit
+tetrominoI = translate { x: -2, y: 0, z: 0 } $ fromArray [ "####" ]
+
 testLoop :: GameLoop Unit
 testLoop = do
-  liftEffect $ log "start!"
   forever
     $ do
-        liftEffect $ log "loop!"
-        size <- lift windowSize
+        lift $ draw tetrominoI
+        lift $ flush
         tick
 
 main :: Effect Unit
 main = do
-  log "🍝"
-  runGameLoop { fps: 16 } testLoop
+  runGameLoop defaultConfig testLoop

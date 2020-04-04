@@ -18,9 +18,10 @@ import Data.Newtype (class Newtype, unwrap, wrap)
 import Data.Time.Duration (Milliseconds(..), fromDuration)
 import Data.Tuple (Tuple(..))
 import Effect.Class (class MonadEffect, liftEffect)
+import Engine.Types (FPS)
 
 data TickerState
-  = TickerState { fps :: Int, lastTickedTime :: DateTime }
+  = TickerState { fps :: FPS, lastTickedTime :: DateTime }
 
 data TickerReader
   = TickerReader { startTime :: DateTime }
@@ -28,11 +29,11 @@ data TickerReader
 newtype TickerT m a
   = Ticker (IterT (RWST TickerReader Unit TickerState m) a)
 
-type TickerConfig
-  = { fps :: Int }
+type Ticker
+  = TickerT Identity
 
-runTickerT :: forall m. Monad m => MonadRec m => MonadEffect m => TickerConfig -> TickerT m ~> m
-runTickerT { fps } m = do
+runTickerT :: forall m. Monad m => MonadRec m => MonadEffect m => FPS -> TickerT m ~> m
+runTickerT fps m = do
   now' <- liftEffect now
   (Tuple a _) <- evalRWST (runFreeT go (unwrap m)) (TickerReader { startTime: now' }) (TickerState { fps: fps, lastTickedTime: now' })
   pure a

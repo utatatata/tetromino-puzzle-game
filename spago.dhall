@@ -4,7 +4,9 @@ You can edit this file as you like.
 -}
 { name = "my-project"
 , dependencies =
-    [ "console"
+    [ "ansi"
+    , "bifunctors"
+    , "console"
     , "control"
     , "datetime"
     , "effect"
@@ -15,6 +17,7 @@ You can edit this file as you like.
     , "lists"
     , "maybe"
     , "psci-support"
+    , "strings"
     , "transformers"
     ]
 , packages = ./packages.dhall
