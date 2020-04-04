@@ -2,11 +2,7 @@ module Engine.CLI where
 
 import Prelude
 import Ansi.Codes (EscapeCode(..), escapeCodeToString)
-import Data.Array as A
-import Data.Foldable (intercalate)
-import Data.List (range)
-import Data.Map as M
-import Data.Maybe (maybe)
+import Data.FoldableWithIndex (forWithIndex_)
 import Data.String.CodeUnits as SCU
 import Effect (Effect)
 import Engine.Types (Size, Space, Vector2, Window(..), projectOnScreen)
@@ -48,13 +44,6 @@ safeWrite :: Window -> Space Char -> Effect Unit
 safeWrite w space = do
   eolStr <- SCU.singleton <$> eol
   da <- drawingArea w
-  write
-    <<< intercalate eolStr
-    <<< map
-        ( \y ->
-            SCU.fromCharArray
-              <<< A.fromFoldable
-              <<< map (\x -> maybe ' ' identity <<< M.lookup { x, y } $ projectOnScreen space)
-              $ range 0 (da.width - 1)
-        )
-    $ range 0 (da.height - 1)
+  forWithIndex_ (projectOnScreen space) \{ x, y } c -> do
+    cursorTo { x, y }
+    write $ SCU.singleton c

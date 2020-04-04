@@ -8,7 +8,7 @@ import Data.List.Zipper (DoubleZipper(..), Zipper(..))
 import Data.Maybe (Maybe(..))
 import Data.Unfoldable (replicate)
 import Effect (Effect)
-import Engine (class Drawable, GameLoop, defaultConfig, draw, flush, fromArray, runGameLoop, translate)
+import Engine (class Drawable, GameLoop, Window(..), defaultConfig, draw, flush, fromArray, runGameLoop, translate)
 import Engine.Ticker (tick)
 
 data Tetromino
@@ -60,4 +60,4 @@ testLoop = do
 
 main :: Effect Unit
 main = do
-  runGameLoop defaultConfig testLoop
+  runGameLoop (defaultConfig { window = FullScreen }) testLoop

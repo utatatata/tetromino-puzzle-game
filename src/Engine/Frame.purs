@@ -10,10 +10,10 @@ import Data.Newtype (class Newtype, unwrap, wrap)
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Effect.Class (class MonadEffect)
-import Engine.Classes (class Drawable)
 import Engine.CLI as CLI
+import Engine.Classes (class Drawable)
 import Engine.Drawing (runDrawing)
-import Engine.Types (Size, Window, Space)
+import Engine.Types (Size, Space, Window)
 
 newtype Frame a
   = Frame (Free Command a)
